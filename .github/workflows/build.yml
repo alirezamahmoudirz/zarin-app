@@ -1,0 +1,291 @@
+name: Build Zarin Parseh APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Generate Project and Inject Code
+        run: |
+          # 1. ساخت پروژه رسمی فلاتر
+          flutter create --org ir.zarinparseh --project-name zarin_parseh my_app
+          cd my_app
+          
+          # 2. افزودن کتابخانه‌های ضروری
+          flutter pub add intl http
+          
+          # 3. قرار دادن کد نهایی اپلیکیشن
+          cat << 'EOF' > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:intl/intl.dart';
+
+          void main() {
+            runApp(const ZarinParsehApp());
+          }
+
+          class ZarinParsehApp extends StatelessWidget {
+            const ZarinParsehApp({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                title: 'زرین‌پارسه',
+                debugShowCheckedModeBanner: false,
+                theme: ThemeData(
+                  useMaterial3: true,
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xFFD4AF37),
+                    primary: const Color(0xFFB8860B),
+                    secondary: const Color(0xFFD4AF37),
+                    surface: const Color(0xFFF8F9FA),
+                  ),
+                ),
+                home: const Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: MainScreen(),
+                ),
+              );
+            }
+          }
+
+          class MainScreen extends StatefulWidget {
+            const MainScreen({super.key});
+
+            @override
+            State<MainScreen> createState() => _MainScreenState();
+          }
+
+          class _MainScreenState extends State<MainScreen> {
+            int _navIndex = 0;
+
+            final List<Widget> _screens = [
+              const MarketPriceTab(),
+              const GoldCalcTab(),
+            ];
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text(
+                    'زرین‌پارسه | نبض بازار طلا',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  centerTitle: true,
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.black87,
+                  elevation: 2,
+                ),
+                body: _screens[_navIndex],
+                bottomNavigationBar: NavigationBar(
+                  selectedIndex: _navIndex,
+                  onDestinationSelected: (idx) => setState(() => _navIndex = idx),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.analytics_outlined),
+                      selectedIcon: Icon(Icons.analytics),
+                      label: 'قیمت لحظه‌ای',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.calculate_outlined),
+                      selectedIcon: Icon(Icons.calculate),
+                      label: 'محاسبه‌گر طلا',
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+
+          class MarketPriceTab extends StatelessWidget {
+            const MarketPriceTab({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _priceCard('انس جهانی طلا (XAU)', '\$2,658.40', Icons.public, Colors.blueGrey),
+                  const SizedBox(height: 12),
+                  _priceCard('طلای ۱۸ عیار (هر گرم)', '۴,۱۹۰,۰۰۰ تومان', Icons.monetization_on, Colors.amber.shade800),
+                  const SizedBox(height: 12),
+                  _priceCard('طلای ۲۴ عیار (هر گرم)', '۵,۵۸۶,۰۰۰ تومان', Icons.workspace_premium, Colors.orange.shade800),
+                  const SizedBox(height: 12),
+                  _priceCard('سکه امامی (تمام)', '۴۸,۲۰۰,۰۰۰ تومان', Icons.toll, Colors.deepOrange),
+                  const SizedBox(height: 12),
+                  _priceCard('نیم سکه بهار آزادی', '۲۶,۱۰۰,۰۰۰ تومان', Icons.circle_outlined, Colors.brown),
+                ],
+              );
+            }
+
+            Widget _priceCard(String title, String price, IconData icon, Color col) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(backgroundColor: col.withOpacity(0.12), child: Icon(icon, color: col)),
+                        const SizedBox(width: 12),
+                        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      ],
+                    ),
+                    Text(price, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: col)),
+                  ],
+                ),
+              );
+            }
+          }
+
+          class GoldCalcTab extends StatefulWidget {
+            const GoldCalcTab({super.key});
+
+            @override
+            State<GoldCalcTab> createState() => _GoldCalcTabState();
+          }
+
+          class _GoldCalcTabState extends State<GoldCalcTab> {
+            final TextEditingController _weightCtrl = TextEditingController(text: '1');
+            final TextEditingController _priceCtrl = TextEditingController(text: '4190000');
+            final TextEditingController _ojratCtrl = TextEditingController(text: '7');
+            final TextEditingController _profitCtrl = TextEditingController(text: '7');
+            final TextEditingController _taxCtrl = TextEditingController(text: '9');
+
+            double _result = 0.0;
+            final formatter = NumberFormat('#,###');
+
+            @override
+            void initState() {
+              super.initState();
+              _recalc();
+            }
+
+            void _recalc() {
+              double weight = double.tryParse(_weightCtrl.text) ?? 0.0;
+              double gramPrice = double.tryParse(_priceCtrl.text) ?? 0.0;
+              double ojrat = double.tryParse(_ojratCtrl.text) ?? 0.0;
+              double profit = double.tryParse(_profitCtrl.text) ?? 0.0;
+              double tax = double.tryParse(_taxCtrl.text) ?? 0.0;
+
+              double rawVal = weight * gramPrice;
+              double ojratVal = rawVal * (ojrat / 100);
+              double profitVal = (rawVal + ojratVal) * (profit / 100);
+              double taxVal = (ojratVal + profitVal) * (tax / 100);
+
+              setState(() {
+                _result = rawVal + ojratVal + profitVal + taxVal;
+              });
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _weightCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'وزن طلا (گرم)', border: OutlineInputBorder()),
+                      onChanged: (_) => _recalc(),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _priceCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'قیمت هر گرم ۱۸ عیار (تومان)', border: OutlineInputBorder()),
+                      onChanged: (_) => _recalc(),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _ojratCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'اجرت (%)', border: OutlineInputBorder()),
+                            onChanged: (_) => _recalc(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _profitCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'سود طلافروش (%)', border: OutlineInputBorder()),
+                            onChanged: (_) => _recalc(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _taxCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'مالیات (%)', border: OutlineInputBorder()),
+                            onChanged: (_) => _recalc(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFD4AF37), width: 1.5),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('مبلغ نهایی فاکتور طلا:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${formatter.format(_result.round())} تومان',
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFB8860B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+          EOF
+
+      - name: Build Android Release APK
+        run: |
+          cd my_app
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZarinParseh-Release-APK
+          path: my_app/build/app/outputs/flutter-apk/app-release.apk
