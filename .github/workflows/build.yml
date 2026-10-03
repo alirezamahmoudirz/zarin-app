@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
@@ -19,20 +22,17 @@ jobs:
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Generate Project and Inject Code
+      - name: Create Flutter Project Structure
         run: |
-          # 1. ساخت پروژه رسمی فلاتر
           flutter create --org ir.zarinparseh --project-name zarin_parseh my_app
           cd my_app
-          
-          # 2. افزودن کتابخانه‌های ضروری
           flutter pub add intl http
-          
-          # 3. قرار دادن کد نهایی اپلیکیشن
-          cat << 'EOF' > lib/main.dart
+
+      - name: Write Application Code
+        run: |
+          cat << 'EOF' > my_app/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:intl/intl.dart';
 
@@ -280,12 +280,12 @@ jobs:
           EOF
 
       - name: Build Android Release APK
-        run: |
-          cd my_app
-          flutter build apk --release --no-tree-shake-icons
+        working-directory: my_app
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZarinParseh-Release-APK
           path: my_app/build/app/outputs/flutter-apk/app-release.apk
+
